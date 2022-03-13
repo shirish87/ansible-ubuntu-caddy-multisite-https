@@ -1,0 +1,120 @@
+---
+- name: Create bin dir
+  ansible.builtin.file:
+    path: "/home/{{ deploy_user }}/bin"
+    state: directory
+    owner: "{{ deploy_user }}"
+    group: "{{ deploy_group }}"
+  tags:
+    - bin
+
+- name: Set fnm PATH in .bashrc
+  blockinfile:
+    path: "/home/{{ deploy_user }}/.bashrc"
+    marker: "# user-bin"
+    block: |
+      PATH="$HOME/bin:$PATH"
+  tags:
+    - bin
+
+
+- name: Check golang installed
+  command: /usr/local/go/bin/go version
+  ignore_errors: true
+  register: gc
+  tags:
+    - golang
+
+- name: Download golang
+  get_url:
+    url: "https://go.dev/dl/go{{ golang_version }}.linux-{{ arch }}.tar.gz"
+    checksum: "sha256:02b111284bedbfa35a7e5b74a06082d18632eff824fd144312f6063943d49259"
+    dest: "/tmp/go{{ golang_version }}.linux-{{ arch }}.tar.gz"
+    owner: "{{ deploy_user }}"
+    group: "{{ deploy_group }}"
+    mode: "u=rx,g=rx,o=rx"
+  when: gc.rc > 0
+  tags:
+    - golang
+
+- name: Install golang
+  unarchive:
+    src: "/tmp/go{{ golang_version }}.linux-{{ arch }}.tar.gz"
+    dest: "/usr/local"
+    remote_src: true
+  when: gc.rc > 0
+  tags:
+    - golang
+
+- name: Set golang home
+  ansible.builtin.file:
+    path: "/home/{{ deploy_user }}/go"
+    state: directory
+    owner: "{{ deploy_user }}"
+    group: "{{ deploy_group }}"
+  tags:
+    - golang
+
+- name: Set GOPATH in .bashrc
+  blockinfile:
+    path: "/home/{{ deploy_user }}/.bashrc"
+    marker: "# golang"
+    block: |
+      GOPATH="$HOME/go"
+      PATH="/usr/local/go/bin:$PATH"
+  tags:
+    - golang
+
+
+- name: Create .fnm dir
+  ansible.builtin.file:
+    path: "/home/{{ deploy_user }}/.fnm"
+    state: directory
+    owner: "{{ deploy_user }}"
+    group: "{{ deploy_group }}"
+  tags:
+    - nodejs
+
+- name: Check fnm installed
+  stat: path="/home/{{ deploy_user }}/.fnm/fnm"
+  register: st
+  tags:
+    - nodejs
+
+- name: Install fnm
+  unarchive:
+    src: "https://github.com/Schniz/fnm/releases/download/{{ fnm_version }}/fnm-{{ arch | replace('amd64', 'linux') }}.zip"
+    dest: "/home/{{ deploy_user }}/.fnm"
+    remote_src: true
+    owner: "{{ deploy_user }}"
+    group: "{{ deploy_group }}"
+    mode: "u=rwx,g=rx,o=rx"
+  when: st.stat.exists == False
+  tags:
+    - nodejs
+
+- name: Set fnm PATH in .bashrc
+  blockinfile:
+    path: "/home/{{ deploy_user }}/.bashrc"
+    marker: "# fnm"
+    block: |
+      PATH="$HOME/.fnm:$PATH"
+      eval "$($HOME/.fnm/fnm env)"
+  tags:
+    - nodejs
+
+- name: fnm install latest
+  command: "/home/{{ deploy_user }}/.fnm/fnm install --lts"
+  become: true
+  become_user: "{{ deploy_user }}"
+  when: st.stat.exists == False
+  tags:
+    - nodejs
+
+- name: Install yarn
+  command: "/home/{{ deploy_user }}/.fnm/fnm exec --using lts-latest corepack enable"
+  become: true
+  become_user: "{{ deploy_user }}"
+  when: st.stat.exists == False
+  tags:
+    - nodejs

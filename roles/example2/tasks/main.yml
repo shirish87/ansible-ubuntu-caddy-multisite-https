@@ -1,0 +1,54 @@
+- name: Ensure home for {{ domain }} exists
+  ansible.builtin.file: path="/var/www/{{ domain }}" state=directory owner=caddy group=caddy
+  tags:
+    - example2
+
+- name: Copy site files
+  copy:
+    src: "{{ domain }}/"
+    dest: "/var/www/{{ domain }}/"
+    owner: "caddy"
+    group: "caddy"
+  tags:
+    - example2
+
+- name: "Copy Caddyfile {{ caddyfile }}"
+  ansible.builtin.template:
+    src: "files/Caddyfile.j2"
+    dest: "{{ caddyfile }}"
+    owner: caddy
+    group: caddy
+    validate: "caddy validate --adapter caddyfile --config %s"
+  tags:
+    - example2
+
+- name: "Import {{ caddyfile }} in /etc/caddy/Caddyfile"
+  blockinfile:
+    path: "/etc/caddy/Caddyfile"
+    owner: caddy
+    group: caddy
+    create: false
+    insertbefore: BOF
+    marker: "# {mark} {{ domain }}"
+    block: |
+      import {{ caddyfile }}
+    validate: "caddy validate --adapter caddyfile --config %s"
+  notify:
+    - Restart caddy
+  tags:
+    - example2
+
+- name: Create example2 container
+  community.docker.docker_container:
+    name: example2
+    image: ghost:4
+    restart_policy: unless-stopped
+    ports:
+      - 8080:2368
+    env:
+      url: "https://www.example2.com"
+    container_default_behavior: no_defaults
+  become: true
+  become_user: "{{ deploy_user }}"
+  tags:
+    - example2

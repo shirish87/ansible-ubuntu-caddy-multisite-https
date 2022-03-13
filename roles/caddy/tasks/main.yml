@@ -1,0 +1,53 @@
+- name: Check caddy installed
+  command: caddy version
+  ignore_errors: true
+  register: c
+  tags:
+    - caddy
+
+- name: Import caddy repository GPG key
+  apt_key: url="https://dl.cloudsmith.io/public/caddy/stable/gpg.key" state=present
+  when: c.rc > 0
+  tags:
+    - caddy
+
+- name: Add caddy repository
+  apt_repository: repo="deb https://dl.cloudsmith.io/public/caddy/stable/deb/debian any-version main" state=present
+  when: c.rc > 0
+  tags:
+    - caddy
+
+- name: Update apt and install caddy
+  apt: name=caddy state=latest update_cache=yes
+  when: c.rc > 0
+  tags:
+    - caddy
+
+- name: Check caddy packages installed
+  command: "caddy list-modules --packages --skip-standard"
+  register: caddy_packages
+  tags:
+    - caddy
+
+- name: Install cloudflare DNS plugin for caddy
+  command: "caddy add-package github.com/caddy-dns/cloudflare"
+  when: not caddy_packages.stdout is search('dns.providers.cloudflare')
+  tags:
+    - caddy
+
+- name: Create caddy conf.d
+  ansible.builtin.file: path="/etc/caddy/conf.d" state=directory owner=caddy group=caddy
+  tags:
+    - caddy
+
+- name: Copy Caddyfile
+  ansible.builtin.template:
+    src: "files/Caddyfile.j2"
+    dest: "/etc/caddy/Caddyfile"
+    owner: caddy
+    group: caddy
+    validate: "caddy validate --adapter caddyfile --config %s"
+  notify:
+    - Restart caddy
+  tags:
+    - caddy

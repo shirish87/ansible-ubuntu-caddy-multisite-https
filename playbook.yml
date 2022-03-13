@@ -1,0 +1,27 @@
+---
+- name: Set up sites
+  hosts: sites
+  gather_facts: false
+  become: true
+
+  pre_tasks:
+    - name: Get system architecture
+      shell: dpkg --print-architecture
+      register: deb_arch
+      tags:
+        - always
+
+    - set_fact: arch="{{ deb_arch.stdout }}"
+      tags:
+        - always
+
+  handlers:
+    - import_tasks: handlers.yml
+
+  roles:
+    - init
+    - docker
+    - tools
+    - caddy
+    - buggycoder
+    - dotslashlabs

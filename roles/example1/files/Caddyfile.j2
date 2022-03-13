@@ -1,0 +1,23 @@
+(tls_{{ domain }}) {
+	tls {{ acme_email }} {
+		dns cloudflare {{ cloudflare_api_token }}
+	{% if acme_staging %}
+	ca https://acme-staging-v02.api.letsencrypt.org/directory
+	{% endif -%}
+	}
+}
+
+{% if naked_domain is defined -%}
+http://{{ naked_domain }}, https://{{ naked_domain }} {
+	import tls_{{ domain }}
+	redir https://www.{host}{uri}
+}
+{% endif %}
+
+{{ domain }} {
+	import tls_{{ domain }}
+
+	# Set this path to your site's directory.
+	root * /var/www/{{ domain }}
+	file_server
+}

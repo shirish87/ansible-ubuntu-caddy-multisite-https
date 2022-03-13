@@ -1,0 +1,39 @@
+- name: Ensure home for {{ domain }} exists
+  ansible.builtin.file: path="/var/www/{{ domain }}" state=directory owner=caddy group=caddy
+  tags:
+    - example1
+
+- name: Copy site files
+  copy:
+    src: "{{ domain }}/"
+    dest: "/var/www/{{ domain }}/"
+    owner: "caddy"
+    group: "caddy"
+  tags:
+    - example1
+
+- name: "Copy Caddyfile {{ caddyfile }}"
+  ansible.builtin.template:
+    src: "files/Caddyfile.j2"
+    dest: "{{ caddyfile }}"
+    owner: caddy
+    group: caddy
+    validate: "caddy validate --adapter caddyfile --config %s"
+  tags:
+    - example1
+
+- name: "Import {{ caddyfile }} in /etc/caddy/Caddyfile"
+  blockinfile:
+    path: "/etc/caddy/Caddyfile"
+    owner: caddy
+    group: caddy
+    create: false
+    insertbefore: BOF
+    marker: "# {mark} {{ domain }}"
+    block: |
+      import {{ caddyfile }}
+    validate: "caddy validate --adapter caddyfile --config %s"
+  notify:
+    - Restart caddy
+  tags:
+    - example1

@@ -1,0 +1,72 @@
+- name: Check docker installed
+  command: docker --version
+  ignore_errors: true
+  register: d
+  tags:
+    - docker
+
+- name: Add Docker GPG apt Key
+  apt_key: url="https://download.docker.com/linux/ubuntu/gpg" state=present
+  when: d.rc > 0
+  tags:
+    - docker
+
+- name: Add Docker Repository
+  apt_repository: repo="deb https://download.docker.com/linux/ubuntu focal stable" state=present
+  when: d.rc > 0
+  tags:
+    - docker
+
+- name: Update apt and install docker-ce
+  apt: update_cache=yes name=docker-ce state=latest
+  when: d.rc > 0
+  tags:
+    - docker
+
+- name: Check docker installed
+  command: docker --version
+  when: d.rc > 0
+  tags:
+    - docker
+
+- name: Check docker-compose installed
+  command: docker-compose --version
+  ignore_errors: true
+  register: dc
+  tags:
+    - docker
+
+- name: Download and install docker-compose
+  get_url:
+    url: "https://github.com/docker/compose/releases/download/{{ docker_compose_version }}/docker-compose-linux-{{ arch | replace('amd64', 'x86_64') }}"
+    dest: /usr/local/bin/docker-compose
+    mode: 'a+r,a-w,a+x'
+    checksum: "sha256:https://github.com/docker/compose/releases/download/{{ docker_compose_version }}/docker-compose-linux-{{ arch | replace('amd64', 'x86_64') }}.sha256"
+  when: dc.rc > 0
+  tags:
+    - docker
+
+- name: Check docker-compose installed
+  command: docker-compose --version
+  when: dc.rc > 0
+  tags:
+    - docker
+
+- name: Install Docker SDK for Python3
+  pip: name=docker executable=pip3
+  tags:
+    - docker
+
+- name: Add "{{ deploy_user }}" user to "docker" group
+  user: name="{{ deploy_user }}" group="docker" append=yes
+  tags:
+    - docker
+
+- name: Ensure home for docker deploys exists
+  ansible.builtin.file:
+    path: "/home/{{ deploy_user }}/docker"
+    state: directory
+    owner: "{{ deploy_user }}"
+    group: "{{ deploy_group }}"
+  tags:
+    - docker

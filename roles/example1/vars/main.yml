@@ -1,0 +1,7 @@
+---
+  naked_domain: "example1.com"
+  domain: "www.example1.com"
+  acme_email: "acme@example1.com"
+  acme_staging: false
+  cloudflare_api_token: ""
+  caddyfile: "/etc/caddy/conf.d/{{ domain }}"

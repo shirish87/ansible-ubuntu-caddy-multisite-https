@@ -1,0 +1,77 @@
+---
+- hostname: name="{{ inventory_hostname }}"
+
+- name: Set authorized key took from url
+  authorized_key:
+    user: "{{ ansible_ssh_user }}"
+    state: present
+    key: "https://github.com/{{ github_user_pub_key }}.keys"
+  when: github_user_pub_key is defined
+  tags:
+    - ssh
+
+- name: Update and upgrade apt packages
+  apt: upgrade=yes update_cache=yes cache_valid_time=86400 # One day
+  tags:
+    - apt
+
+- name: Install utils
+  apt:
+    state: latest
+    update_cache: true
+    pkg:
+      - locales
+      - acl
+      - htop
+      - curl
+      - wget
+      - jq
+      - apt-transport-https
+      - ca-certificates
+      - software-properties-common
+      - build-essential
+      - tree
+      - unzip
+      - lsof
+      - telnet
+      - python3-pip
+      - python3-setuptools
+      - virtualenv
+      - vim
+  tags:
+    - apt
+
+
+- name: /etc/locale.gen
+  lineinfile:
+    dest: /etc/locale.gen
+    regexp: "^en_US.UTF-8"
+    line: "en_US.UTF-8 UTF-8"
+  notify:
+    - Rebuild locales database
+  tags:
+    - ssh
+
+
+- name: Create deploy group
+  group: name="{{ deploy_group }}" state=present
+  tags:
+    - deploy-user
+
+- name: Create deploy user and generate a ssh key
+  user: name="{{ deploy_user }}"
+        group="{{ deploy_group }}"
+        state=present
+        shell=/bin/bash
+        generate_ssh_key=yes
+        ssh_key_type=rsa
+        ssh_key_bits=2048
+        ssh_key_comment="{{ deploy_user }}@{{ inventory_hostname }}"
+        ssh_key_file="{{ deploy_user_ssh_key_file }}"
+  tags:
+    - deploy-user
+
+- name: Ensure .ssh/config file exists
+  file: state=touch path="{{ deploy_home }}/.ssh/config" owner="{{ deploy_user }}" group="{{ deploy_group }}"
+  tags:
+    - deploy-user
