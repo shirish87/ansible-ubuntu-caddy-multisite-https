@@ -51,3 +51,8 @@
     - Restart caddy
   tags:
     - caddy
+
+- name: Static file home
+  ansible.builtin.file: path="/var/www" state=directory owner=caddy group=caddy
+  tags:
+    - caddy
